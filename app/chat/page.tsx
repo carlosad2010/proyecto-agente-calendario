@@ -314,7 +314,19 @@ export default function ChatPage() {
 
         {cargando && <p className="text-xs text-slate-400">Pensando…</p>}
         {error && (
-          <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700">{error}</p>
+          <div className="space-y-2 rounded-lg bg-red-50 p-3 text-xs text-red-700">
+            <p>{error}</p>
+            <button
+              onClick={() => {
+                setMensajes([]);
+                setPendiente(null);
+                setError(null);
+              }}
+              className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white"
+            >
+              Reiniciar conversación
+            </button>
+          </div>
         )}
         <div ref={finRef} />
       </div>
@@ -329,8 +341,8 @@ export default function ChatPage() {
         <button
           type="button"
           onClick={activarMicrofono}
-          disabled={cargando}
-          className={`shrink-0 rounded-full px-3 py-2 text-sm ${
+          disabled={cargando || !!pendiente}
+          className={`shrink-0 rounded-full px-3 py-2 text-sm disabled:opacity-40 ${
             escuchando ? "bg-red-500 text-white" : "bg-slate-100 text-slate-700"
           }`}
         >
@@ -339,13 +351,17 @@ export default function ChatPage() {
         <input
           value={entrada}
           onChange={(e) => setEntrada(e.target.value)}
-          placeholder="Escribe o usa el micrófono…"
-          disabled={cargando}
-          className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500"
+          placeholder={
+            pendiente
+              ? "Responde con los botones de arriba…"
+              : "Escribe o usa el micrófono…"
+          }
+          disabled={cargando || !!pendiente}
+          className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 disabled:bg-slate-50 disabled:text-slate-400"
         />
         <button
           type="submit"
-          disabled={cargando || !entrada.trim()}
+          disabled={cargando || !!pendiente || !entrada.trim()}
           className="shrink-0 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           Enviar
