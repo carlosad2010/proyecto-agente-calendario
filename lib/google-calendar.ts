@@ -26,6 +26,35 @@ function getCalendar(accessToken: string) {
   return google.calendar({ version: "v3", auth });
 }
 
+/**
+ * Bogotá NO tiene horario de verano: su offset respecto a UTC es
+ * siempre -05:00, todo el año. Por eso podemos construir las horas
+ * "a mano" en vez de depender de Date.setHours(), que toma la zona
+ * horaria del servidor donde corre Node (en Vercel es UTC, no Bogotá).
+ */
+function fechaBogota(anio: number, mes: number, dia: number, hora: number): Date {
+  // mes es 0-indexado (como en Date).
+  const mesStr = String(mes + 1).padStart(2, "0");
+  const diaStr = String(dia).padStart(2, "0");
+  const horaStr = String(hora).padStart(2, "0");
+  return new Date(`${anio}-${mesStr}-${diaStr}T${horaStr}:00:00-05:00`);
+}
+
+/**
+ * Extrae año/mes/día "vistos desde Bogotá" de una fecha cualquiera,
+ * sin importar en qué zona horaria esté corriendo el servidor.
+ */
+function partesEnBogota(fecha: Date): { anio: number; mes: number; dia: number } {
+  const formateador = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [anio, mes, dia] = formateador.format(fecha).split("-").map(Number);
+  return { anio, mes: mes - 1, dia };
+}
+
 function normalizarEvento(e: any): EventoNormalizado {
   return {
     id: e.id!,
@@ -113,11 +142,10 @@ export async function buscarHuecos(
   for (let offset = 0; offset < dias; offset++) {
     const dia = new Date(desde);
     dia.setDate(dia.getDate() + offset);
+    const { anio, mes, dia: numDia } = partesEnBogota(dia);
 
-    const ventanaInicio = new Date(dia);
-    ventanaInicio.setHours(horaInicio, 0, 0, 0);
-    const ventanaFin = new Date(dia);
-    ventanaFin.setHours(horaFin, 0, 0, 0);
+    const ventanaInicio = fechaBogota(anio, mes, numDia, horaInicio);
+    const ventanaFin = fechaBogota(anio, mes, numDia, horaFin);
 
     // Si estamos evaluando "hoy", el hueco no puede empezar en el pasado.
     const inicioEfectivo =
