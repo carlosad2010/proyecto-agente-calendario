@@ -11,15 +11,19 @@ const MODELO = "claude-sonnet-5";
 
 export type MensajeAgente = Anthropic.MessageParam;
 
+export type AccionEscritura = {
+  herramienta: string;
+  input: any;
+  toolUseId: string;
+};
+
 export type ResultadoAgente =
   | { tipo: "final"; texto: string; mensajes: MensajeAgente[] }
   | {
       tipo: "confirmacion_requerida";
-      texto: string; // lo que el modelo dijo antes de pedir la acción, si algo
-      herramienta: string;
-      input: any;
-      toolUseId: string;
-      mensajes: MensajeAgente[]; // incluye ya el mensaje del assistant con el tool_use
+      texto: string;
+      herramientas: AccionEscritura[];
+      mensajes: MensajeAgente[];
     };
 
 function systemPrompt(): string {
@@ -45,7 +49,7 @@ Reglas:
  * Corre el loop de tool use. Ejecuta automáticamente las herramientas
  * de solo lectura y sigue llamando al modelo hasta que:
  *   a) el modelo termina con texto final (tipo: "final"), o
- *   b) el modelo pide una herramienta de escritura (tipo: "confirmacion_requerida"),
+ *   b) el modelo pide una o más herramientas de escritura (tipo: "confirmacion_requerida"),
  *      momento en el que el loop se DETIENE sin ejecutar nada.
  */
 export async function correrAgente(
@@ -54,7 +58,6 @@ export async function correrAgente(
 ): Promise<ResultadoAgente> {
   let historial = [...mensajes];
 
-  // Límite de seguridad: evita loops infinitos si algo sale mal.
   for (let vuelta = 0; vuelta < 8; vuelta++) {
     const respuesta = await anthropic.messages.create({
       model: MODELO,
@@ -81,10 +84,9 @@ export async function correrAgente(
       };
     }
 
-    // Si CUALQUIERA de las herramientas pedidas es de escritura, paramos
-    // ahí mismo. En la práctica el system prompt empuja a pedir una cosa
-    // a la vez, así que normalmente es solo una.
-    const bloqueEscritura = bloquesToolUse.find(
+    // Si hay herramientas de escritura, agrúpalas TODAS en una sola
+    // confirmación (puede haber múltiples crear_evento, por ejemplo).
+    const bloquesEscritura = bloquesToolUse.filter(
       (b) => !HERRAMIENTAS_LECTURA.has(b.name)
     );
 
@@ -98,13 +100,15 @@ export async function correrAgente(
       { role: "assistant", content: respuesta.content },
     ];
 
-    if (bloqueEscritura) {
+    if (bloquesEscritura.length > 0) {
       return {
         tipo: "confirmacion_requerida",
         texto: textoPrevio,
-        herramienta: bloqueEscritura.name,
-        input: bloqueEscritura.input,
-        toolUseId: bloqueEscritura.id,
+        herramientas: bloquesEscritura.map((b) => ({
+          herramienta: b.name,
+          input: b.input,
+          toolUseId: b.id,
+        })),
         mensajes: mensajesConAssistant,
       };
     }

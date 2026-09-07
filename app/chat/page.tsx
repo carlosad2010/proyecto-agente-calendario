@@ -6,10 +6,14 @@ import { useSession } from "next-auth/react";
 type BloqueContenido = { type: string; text?: string; [k: string]: any };
 type Mensaje = { role: "user" | "assistant"; content: string | BloqueContenido[] };
 
-type PendienteConfirmacion = {
+type AccionEscritura = {
   herramienta: string;
   input: any;
   toolUseId: string;
+};
+
+type PendienteConfirmacion = {
+  herramientas: AccionEscritura[];
   mensajes: Mensaje[];
 };
 
@@ -68,16 +72,15 @@ export default function ChatPage() {
   const [cargando, setCargando] = useState(false);
   const [escuchando, setEscuchando] = useState(false);
   const [vozActiva, setVozActiva] = useState(true);
-  const [pendiente, setPendiente] = useState<PendienteConfirmacion | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [voces, setVoces] = useState<SpeechSynthesisVoice[]>([]);
   const [vozElegidaURI, setVozElegidaURI] = useState<string>("");
+  const [pendiente, setPendiente] = useState<PendienteConfirmacion | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const reconocimientoRef = useRef<any>(null);
   const finRef = useRef<HTMLDivElement>(null);
 
-  // Carga la lista de voces del navegador/SO. En Chrome esto llega
-  // async vía el evento 'voiceschanged', no está lista de inmediato.
+  // Carga la lista de voces del navegador/SO.
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
 
@@ -87,8 +90,6 @@ export default function ChatPage() {
         .filter((v) => v.lang.startsWith("es"));
       setVoces(disponibles);
 
-      // Preferimos voces que digan "Natural" (las de Microsoft en Windows
-      // 10/11 son notablemente mejores que las clásicas de Google/Chrome).
       if (!vozElegidaURI && disponibles.length > 0) {
         const natural = disponibles.find((v) => /natural/i.test(v.name));
         setVozElegidaURI((natural ?? disponibles[0]).voiceURI);
@@ -130,11 +131,11 @@ export default function ChatPage() {
   function hablar(texto: string) {
     if (!vozActiva || !texto) return;
     if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel(); // no encimar audios
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(limpiarParaVoz(texto));
     utterance.lang = "es-CO";
-    utterance.rate = 1.02; // casi normal; un poco más lento se siente más natural
+    utterance.rate = 1.02;
     utterance.pitch = 1;
 
     const voz = voces.find((v) => v.voiceURI === vozElegidaURI);
@@ -176,9 +177,7 @@ export default function ChatPage() {
         setMensajes(data.mensajes);
         if (data.texto) hablar(data.texto);
         setPendiente({
-          herramienta: data.herramienta,
-          input: data.input,
-          toolUseId: data.toolUseId,
+          herramientas: data.herramientas,
           mensajes: data.mensajes,
         });
       }
@@ -202,9 +201,7 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mensajes: solicitud.mensajes,
-          toolUseId: solicitud.toolUseId,
-          herramienta: solicitud.herramienta,
-          input: solicitud.input,
+          herramientas: solicitud.herramientas,
           confirmado,
         }),
       });
@@ -218,9 +215,7 @@ export default function ChatPage() {
         setMensajes(data.mensajes);
         if (data.texto) hablar(data.texto);
         setPendiente({
-          herramienta: data.herramienta,
-          input: data.input,
-          toolUseId: data.toolUseId,
+          herramientas: data.herramientas,
           mensajes: data.mensajes,
         });
       }
@@ -287,12 +282,26 @@ export default function ChatPage() {
 
         {pendiente && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
-            <p className="mb-1 font-medium text-amber-900">
-              {ETIQUETAS_HERRAMIENTA[pendiente.herramienta] ?? pendiente.herramienta}
+            <p className="mb-3 font-medium text-amber-900">
+              {pendiente.herramientas.length === 1
+                ? ETIQUETAS_HERRAMIENTA[pendiente.herramientas[0].herramienta]
+                : `${pendiente.herramientas.length} acciones pendientes`}
             </p>
-            <p className="mb-3 text-amber-800">
-              {resumenAccion(pendiente.herramienta, pendiente.input)}
-            </p>
+            <div className="mb-3 space-y-2">
+              {pendiente.herramientas.map((accion, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg bg-white p-2 text-xs text-amber-800"
+                >
+                  <p className="font-medium">
+                    {ETIQUETAS_HERRAMIENTA[accion.herramienta]}
+                  </p>
+                  <p className="text-amber-700">
+                    {resumenAccion(accion.herramienta, accion.input)}
+                  </p>
+                </div>
+              ))}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => responderConfirmacion(true)}
