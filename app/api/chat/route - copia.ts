@@ -10,29 +10,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  const { mensajes, herramientas, confirmado } = (await request.json()) as {
+    mensajes: MensajeAgente[];
+    herramientas: AccionEscritura[];
+    confirmado: boolean;
+  };
+
   try {
-    const body = await request.json();
-    const { mensajes, herramientas, confirmado } = body as {
-      mensajes: MensajeAgente[];
-      herramientas: AccionEscritura[] | undefined;
-      confirmado: boolean;
-    };
-
-    // Validar que herramientas es un array
-    if (!Array.isArray(herramientas)) {
-      return NextResponse.json(
-        { error: "herramientas debe ser un array" },
-        { status: 400 }
-      );
-    }
-
-    if (herramientas.length === 0) {
-      return NextResponse.json(
-        { error: "No hay herramientas para procesar" },
-        { status: 400 }
-      );
-    }
-
     let resultadosConsolidados: any;
 
     if (confirmado) {

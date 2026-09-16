@@ -1,11 +1,11 @@
 "use client";
- 
+
 import { useEffect, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import type { EventoNormalizado } from "@/lib/google-calendar";
- 
+
 const TZ = "America/Bogota";
- 
+
 function formatearDia(iso: string) {
   return new Intl.DateTimeFormat("es-CO", {
     weekday: "long",
@@ -14,7 +14,7 @@ function formatearDia(iso: string) {
     timeZone: TZ,
   }).format(new Date(iso));
 }
- 
+
 function formatearHora(iso: string) {
   return new Intl.DateTimeFormat("es-CO", {
     hour: "numeric",
@@ -22,13 +22,13 @@ function formatearHora(iso: string) {
     timeZone: TZ,
   }).format(new Date(iso));
 }
- 
+
 export default function Home() {
   const { data: session, status } = useSession();
   const [eventos, setEventos] = useState<EventoNormalizado[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
- 
+
   useEffect(() => {
     if (status !== "authenticated") return;
     setCargando(true);
@@ -42,11 +42,11 @@ export default function Home() {
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   }, [status]);
- 
+
   if (status === "loading") {
     return <main className="p-8 text-sm text-slate-500">Cargando…</main>;
   }
- 
+
   if (status !== "authenticated") {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-8">
@@ -67,7 +67,7 @@ export default function Home() {
       </main>
     );
   }
- 
+
   // Agrupamos por día para que se lea como una agenda, no como una lista plana
   const porDia = eventos.reduce<Record<string, EventoNormalizado[]>>(
     (acc, ev) => {
@@ -77,7 +77,7 @@ export default function Home() {
     },
     {}
   );
- 
+
   return (
     <main className="mx-auto max-w-2xl p-6">
       <header className="mb-8 flex items-center justify-between gap-4">
@@ -94,21 +94,21 @@ export default function Home() {
           Desconectar
         </button>
       </header>
- 
+
       {cargando && <p className="text-sm text-slate-500">Leyendo tu agenda…</p>}
- 
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {error}
         </div>
       )}
- 
+
       {!cargando && !error && eventos.length === 0 && (
         <p className="text-sm text-slate-500">
           No hay eventos en los próximos 7 días.
         </p>
       )}
- 
+
       <div className="space-y-8">
         {Object.entries(porDia).map(([dia, delDia]) => (
           <section key={dia}>
@@ -147,4 +147,3 @@ export default function Home() {
     </main>
   );
 }
- 

@@ -17,6 +17,7 @@ type PendienteConfirmacion = {
   mensajes: Mensaje[];
 };
 
+// Traduce el nombre técnico de la herramienta a algo legible en la tarjeta.
 const ETIQUETAS_HERRAMIENTA: Record<string, string> = {
   crear_evento: "Crear evento",
   mover_evento: "Mover evento",
@@ -44,6 +45,7 @@ function resumenAccion(herramienta: string, input: any): string {
   }
 }
 
+// Extrae solo el texto legible de un mensaje para mostrarlo/leerlo.
 function textoDe(mensaje: Mensaje): string {
   if (typeof mensaje.content === "string") return mensaje.content;
   return mensaje.content
@@ -52,12 +54,14 @@ function textoDe(mensaje: Mensaje): string {
     .join("\n");
 }
 
+// Red de seguridad: si el modelo se descuida y manda markdown,
+// esto lo limpia antes de pasarlo al sintetizador de voz.
 function limpiarParaVoz(texto: string): string {
   return texto
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/[_#>`]/g, "")
-    .replace(/^-\s+/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1") // **negrita** -> negrita
+    .replace(/\*(.*?)\*/g, "$1") // *cursiva* -> cursiva
+    .replace(/[_#>`]/g, "") // guiones bajos, numerales, citas, código
+    .replace(/^-\s+/gm, "") // viñetas de lista
     .trim();
 }
 
@@ -76,6 +80,7 @@ export default function ChatPage() {
   const reconocimientoRef = useRef<any>(null);
   const finRef = useRef<HTMLDivElement>(null);
 
+  // Carga la lista de voces del navegador/SO.
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
 
@@ -100,6 +105,7 @@ export default function ChatPage() {
     finRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensajes, pendiente]);
 
+  // Configura el reconocimiento de voz una sola vez.
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -170,11 +176,6 @@ export default function ChatPage() {
       } else if (data.tipo === "confirmacion_requerida") {
         setMensajes(data.mensajes);
         if (data.texto) hablar(data.texto);
-
-        if (!Array.isArray(data.herramientas)) {
-          throw new Error("Formato de respuesta inválido: herramientas no es un array");
-        }
-
         setPendiente({
           herramientas: data.herramientas,
           mensajes: data.mensajes,
@@ -213,11 +214,6 @@ export default function ChatPage() {
       } else if (data.tipo === "confirmacion_requerida") {
         setMensajes(data.mensajes);
         if (data.texto) hablar(data.texto);
-
-        if (!Array.isArray(data.herramientas)) {
-          throw new Error("Formato de respuesta inválido: herramientas no es un array");
-        }
-
         setPendiente({
           herramientas: data.herramientas,
           mensajes: data.mensajes,
@@ -284,11 +280,11 @@ export default function ChatPage() {
             </div>
           ))}
 
-        {pendiente && pendiente.herramientas && pendiente.herramientas.length > 0 && (
+        {pendiente && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
             <p className="mb-3 font-medium text-amber-900">
               {pendiente.herramientas.length === 1
-                ? ETIQUETAS_HERRAMIENTA[pendiente.herramientas[0].herramienta] || "Acción"
+                ? ETIQUETAS_HERRAMIENTA[pendiente.herramientas[0].herramienta]
                 : `${pendiente.herramientas.length} acciones pendientes`}
             </p>
             <div className="mb-3 space-y-2">
@@ -298,7 +294,7 @@ export default function ChatPage() {
                   className="rounded-lg bg-white p-2 text-xs text-amber-800"
                 >
                   <p className="font-medium">
-                    {ETIQUETAS_HERRAMIENTA[accion.herramienta] || accion.herramienta}
+                    {ETIQUETAS_HERRAMIENTA[accion.herramienta]}
                   </p>
                   <p className="text-amber-700">
                     {resumenAccion(accion.herramienta, accion.input)}
